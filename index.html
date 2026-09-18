@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>リアルタイム脳内メーカー</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.11.13/lib/p5.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <main id="all">
+      <header id="header_title">リアルタイム脳内メーカー</header>
+
+      <form id="name-form" autocomplete="off">
+        <input id="name" type="text" maxlength="12" value="あなた" aria-label="名前">
+        <span>の脳内</span>
+      </form>
+
+      <h1 id="maga_title"><span id="name-out">あなた</span>の脳内イメージ</h1>
+      <div id="stage" role="img" aria-label="左向きの横顔。頭の中に、話している内容から決めた漢字が並ぶ"></div>
+      <p id="announce" class="sr-only" aria-live="polite"></p>
+
+      <footer id="credit">
+        うそこメーカー「脳内メーカー」に着想を得た非公式のものです。本家とは関係ありません。
+      </footer>
+    </main>
+
+    <aside id="panel" aria-label="字幕と判断の内訳">
+      <section id="captions" aria-labelledby="captions-title">
+        <div class="captions-head">
+          <h2 id="captions-title">字幕</h2>
+          <span id="stt-status" class="status">…</span>
+        </div>
+        <ol id="caption-lines" aria-live="off"></ol>
+        <p class="legend"><mark class="used">下線の範囲</mark>が、いまの脳内のもとになった字幕。</p>
+        <form id="say-form" autocomplete="off">
+          <input id="say" type="text" maxlength="200" placeholder="マイクの代わりに文字で話す" aria-label="マイクの代わりに文字で話す">
+          <button type="submit">送る</button>
+          <button type="button" id="reset">消す</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>◆ Jev の判断</h2>
+        <p class="caption">いまの脳内の構成比。右は Jev が返した生の値（c = choice、n = noul）。</p>
+        <div id="bars" class="bars"></div>
+        <p class="line" id="thin">判断材料が乏しい確率 –</p>
+        <p class="line alert" id="alert" role="status"></p>
+      </section>
+
+      <section>
+        <h2>◇ コードの事実</h2>
+        <dl id="facts">
+          <div><dt>応答時間</dt><dd id="fact-latency">–</dd></div>
+          <div><dt>送った字幕</dt><dd id="fact-chars">–</dd></div>
+          <div><dt>問いの数</dt><dd id="fact-questions">–</dd></div>
+          <div><dt>呼び出し</dt><dd id="fact-calls">0 回</dd></div>
+          <div><dt>累計費用</dt><dd id="fact-cost">$0</dd></div>
+        </dl>
+      </section>
+
+      <details>
+        <summary>Jev に送った state</summary>
+        <pre id="seen">(まだ何も送っていません)</pre>
+      </details>
+    </aside>
+  </div>
+</body>
+</html>

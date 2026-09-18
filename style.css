@@ -1,0 +1,210 @@
+/* 本家のページに合わせた配色と寸法: 背景 #FCFCFC、幅 500px の白い箱、見出しの帯は #5bad00。 */
+:root {
+  --page: #fcfcfc;
+  --box: #ffffff;
+  --border: #cccccc;
+  --green: #5bad00;
+  --ink: #222222;
+  --muted: #777777;
+  --name: #ff0000;
+  --brain: #cbb1af;
+  --alert: #c0392b;
+  --text: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--page);
+  color: var(--ink);
+  font: 12px/1.6 var(--text);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+#all {
+  width: 500px;
+  max-width: 100%;
+  background: var(--box);
+  border: 1px solid var(--border);
+  text-align: center;
+  padding-bottom: 12px;
+}
+
+#header_title {
+  background: var(--green);
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 16px;
+  padding: 8px 0;
+}
+
+#name-form { margin: 14px 0 4px; font-size: 14px; }
+#name-form input {
+  width: 11em;
+  padding: 3px 6px;
+  font: inherit;
+  border: 1px solid #999999;
+}
+
+#maga_title { margin: 8px 0 10px; font-size: 22px; font-weight: bold; color: #000000; }
+#maga_title span { color: var(--name); }
+
+#stage { line-height: 0; }
+#stage canvas { max-width: 100%; height: auto !important; }
+
+/* ---------- 字幕 ---------- */
+
+#captions { text-align: left; }
+
+.captions-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+
+h2 { margin: 0 0 6px; font-size: 14px; font-weight: bold; }
+
+.status { color: var(--muted); }
+.status[data-state='listening'] { color: var(--green); font-weight: bold; }
+.status[data-state='error'],
+.status[data-state='missing'] { color: var(--alert); }
+
+#caption-lines {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  height: 10em;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  background: #1a1a1a;
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+#caption-lines li { opacity: 0.4; transition: opacity 0.3s; }
+#caption-lines li.used { opacity: 1; }
+#caption-lines li.interim { opacity: 0.75; color: #bbbbbb; font-style: italic; }
+#caption-lines li.empty { opacity: 0.5; font-size: 13px; }
+
+/* いまの脳内のもとになった範囲。色だけに頼らず下線でも示す。 */
+#caption-lines .mark {
+  text-decoration: underline;
+  text-decoration-color: #ffe14d;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+#caption-lines li.interim .mark { color: #ffffff; font-style: normal; }
+
+.legend { margin: 6px 0 8px; color: var(--muted); }
+.legend mark {
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: #d4b400;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+#say-form { display: flex; gap: 6px; }
+#say-form input { flex: 1; min-width: 0; padding: 5px 8px; font: 14px var(--text); border: 1px solid #999999; }
+button {
+  padding: 5px 12px;
+  font: 13px var(--text);
+  border: 1px solid #999999;
+  background: #f3f3f3;
+  cursor: pointer;
+}
+button:hover { background: #e8e8e8; }
+
+#credit { margin: 14px 16px 0; color: var(--muted); font-size: 11px; }
+
+/* ---------- 判断の内訳 ---------- */
+
+#panel {
+  width: 420px;
+  max-width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+#panel section,
+#panel details {
+  background: var(--box);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.caption { margin: 0 0 8px; color: var(--muted); }
+
+/* 1 行で固定する行。長くても折り返さず、空でも高さを保つ。 */
+.line { margin: 6px 0 0; height: 1.7em; line-height: 1.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alert { color: var(--alert); }
+
+.bars { display: grid; gap: 5px; }
+
+.bar {
+  display: grid;
+  grid-template-columns: 22px 1fr 3em 6.2em;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  font-size: 13px;
+}
+
+.bar .glyph {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 14px;
+  background: var(--brain);
+}
+
+.bar .track { height: 12px; background: var(--brain); overflow: hidden; }
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--brain);
+  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bar .pct { text-align: right; font-variant-numeric: tabular-nums; }
+.bar .raw { color: var(--muted); font: 11px ui-monospace, Menlo, monospace; white-space: nowrap; }
+.bar.idle { visibility: hidden; }
+
+#facts { margin: 0; display: grid; gap: 3px; font-size: 13px; }
+#facts div { display: flex; justify-content: space-between; gap: 8px; }
+#facts dt { color: var(--muted); }
+#facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+summary { cursor: pointer; font-size: 14px; font-weight: bold; }
+#seen {
+  margin: 8px 0 0;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 11px/1.5 ui-monospace, Menlo, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar i, #caption-lines li { transition: none; }
+}

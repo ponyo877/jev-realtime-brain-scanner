@@ -1,0 +1,12 @@
+{
+  "name": "jev-realtime-brain-scanner",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "build:stt": "swift build -c release --package-path stt",
+    "test": "node --test",
+    "probe": "node sim/probe.js",
+    "sim": "node sim/live.js"
+  }
+}
