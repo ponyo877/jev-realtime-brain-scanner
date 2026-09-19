@@ -1,6 +1,6 @@
 // 実 API を使った通し検証。台本の会話を画面と同じ手順（字幕の窓 → Jev → ならし → セルの個数）で流し、
 // 話題が変わったとき脳内がどれだけ速く移るかと、応答時間と費用を出す。
-//   OPENROUTER_API_KEY=... node sim/live.js
+//   TYPESAFE_API_KEY=... node sim/live.js
 
 import { buildQuestions, buildState, readAnswers, top } from '../src/ask.js'
 import { CELLS } from '../src/brain.js'
@@ -9,9 +9,9 @@ import { askJev } from '../src/jev.js'
 import { BY_ID } from '../src/kanji.js'
 import { createTranscript } from '../src/transcript.js'
 
-const apiKey = process.env.OPENROUTER_API_KEY
+const apiKey = process.env.TYPESAFE_API_KEY
 if (!apiKey) {
-  console.error('環境変数 OPENROUTER_API_KEY が必要です')
+  console.error('環境変数 TYPESAFE_API_KEY が必要です')
   process.exit(1)
 }
 

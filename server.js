@@ -1,6 +1,6 @@
-// ローカル用のサーバー。静的ファイルを配り、Jev への呼び出しを OpenRouter へ中継し、音声認識の字幕をブラウザへ流す。
-// キーは環境変数 OPENROUTER_API_KEY から読み、ブラウザには一切渡さない。依存パッケージなし。
-//   OPENROUTER_API_KEY=... node server.js [ポート=8053] [--no-stt]
+// ローカル用のサーバー。静的ファイルを配り、Jev への呼び出しを TypeSafe の API へ中継し、音声認識の字幕をブラウザへ流す。
+// キーは環境変数 TYPESAFE_API_KEY から読み、ブラウザには一切渡さない。依存パッケージなし。
+//   TYPESAFE_API_KEY=... node server.js [ポート=8053] [--no-stt]
 //   STT_CMD="node sim/fake-stt.js" node server.js   ← 音声認識を、同じ形の JSONL を出す別のコマンドに差し替える
 
 import { spawn } from 'node:child_process'
@@ -15,7 +15,7 @@ const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const ARGS = process.argv.slice(2)
 const PORT = Number(ARGS.find((a) => /^\d+$/.test(a)) ?? process.env.PORT ?? 8053)
 const HOST = '127.0.0.1'
-const API_KEY = process.env.OPENROUTER_API_KEY ?? ''
+const API_KEY = process.env.TYPESAFE_API_KEY ?? ''
 const MAX_BODY = 256 * 1024
 const STT_BIN = join(ROOT, 'stt', '.build', 'release', 'stt')
 const STT_CMD = process.env.STT_CMD ?? ''
@@ -23,7 +23,7 @@ const USE_STT = !ARGS.includes('--no-stt')
 
 // 中継先はここに固定する。任意の URL へ飛ばせる口にはしない。
 const UPSTREAM = {
-  '/api/decisions': 'https://openrouter.ai/api/alpha/decisions',
+  '/api/decisions': 'https://api.typesafe.ai/v1/systemone',
 }
 
 const TYPES = {
@@ -47,7 +47,7 @@ const fail = (res, status, message) => send(res, status, { error: { code: status
 const hostOk = (req) => [`${HOST}:${PORT}`, `localhost:${PORT}`].includes(req.headers.host)
 
 /**
- * よそのサイトを開いているブラウザから、このサーバー経由でクレジットを使われないようにする。
+ * よそのサイトを開いているブラウザから、このサーバー経由でキーを使われないようにする。
  * Host を確かめて DNS リバインディングを防ぎ、JSON 以外を断って別オリジンからの単純リクエストを防ぐ
  * （application/json はプリフライトが要るが、このサーバーは OPTIONS に許可を返さない）。
  */
@@ -73,17 +73,17 @@ async function readBody(req) {
 async function proxy(req, res, upstream) {
   const blocked = guard(req)
   if (blocked) return fail(res, 403, blocked)
-  if (!API_KEY) return fail(res, 401, '環境変数 OPENROUTER_API_KEY が設定されていません')
+  if (!API_KEY) return fail(res, 401, '環境変数 TYPESAFE_API_KEY が設定されていません')
   try {
     const body = await readBody(req)
     const up = await fetch(upstream, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json', 'X-Title': 'Jev Brain Scanner' },
+      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
       body,
     })
     send(res, up.status, Buffer.from(await up.arrayBuffer()))
   } catch (err) {
-    fail(res, err.status ?? 502, `OpenRouter に届きませんでした: ${err.message}`)
+    fail(res, err.status ?? 502, `TypeSafe の API に届きませんでした: ${err.message}`)
   }
 }
 
@@ -187,7 +187,7 @@ createServer((req, res) => {
   fail(res, 405, 'Method not allowed')
 }).listen(PORT, HOST, () => {
   console.log(`リアルタイム脳内メーカー: http://localhost:${PORT}`)
-  console.log(API_KEY ? 'OPENROUTER_API_KEY を使って Jev を中継します' : 'OPENROUTER_API_KEY が未設定です。脳内は更新されません')
+  console.log(API_KEY ? 'TYPESAFE_API_KEY を使って Jev を中継します' : 'TYPESAFE_API_KEY が未設定です。脳内は更新されません')
   if (!USE_STT) console.log('--no-stt: 音声認識を起動しません。画面の入力欄から文字で試せます')
   else if (STT_CMD) console.log(`音声認識のコマンド: ${STT_CMD}`)
   else if (!existsSync(STT_BIN)) console.log('音声認識が未ビルドです。npm run build:stt を実行してください。画面の入力欄から文字でも試せます')

@@ -1,16 +1,16 @@
 // 実 API での下調べ。2 つのことを確かめる。
 //   1. choice が 53 択で動くか。動かないなら noul を 53 問並べる聞き方に切り替える。
 //   2. Jev が日本語の字幕をそのまま読めるか。食べ物の話で「食」、お金の話で「金」が上位に来るか。
-//   OPENROUTER_API_KEY=... node sim/probe.js [fused|choice|noul|all=fused]
+//   TYPESAFE_API_KEY=... node sim/probe.js [fused|choice|noul|all=fused]
 // fused は実際に送る形（choice と noul を 1 リクエストに入れ、答えを混ぜる）。
 
 import { buildQuestions, buildState, choiceQuestions, noulQuestions, readAnswers, top } from '../src/ask.js'
 import { askJev } from '../src/jev.js'
 import { BY_ID } from '../src/kanji.js'
 
-const apiKey = process.env.OPENROUTER_API_KEY
+const apiKey = process.env.TYPESAFE_API_KEY
 if (!apiKey) {
-  console.error('環境変数 OPENROUTER_API_KEY が必要です')
+  console.error('環境変数 TYPESAFE_API_KEY が必要です')
   process.exit(1)
 }
 
@@ -43,7 +43,7 @@ async function run(label, questions) {
       cost += res.usage?.cost ?? 0
       console.log(`\n「${text}」`)
       console.log(`  ${hit ? '○' : '×'} ${best.map(([id, p]) => `${BY_ID[id].glyph}${(p * 100).toFixed(1)}%`).join('  ')}`)
-      console.log(`  thin=${thin.toFixed(2)}  ${res.latencyMs}ms  in=${res.usage?.input_tokens} out=${res.usage?.output_tokens} cost=$${res.usage?.cost}`)
+      console.log(`  thin=${thin.toFixed(2)}  ${res.latencyMs}ms  in=${res.usage?.input_tokens} out=${res.usage?.output_tokens} cost=$${(res.usage?.cost ?? 0).toFixed(6)}`)
     } catch (err) {
       console.log(`\n「${text}」\n  失敗: ${err.message}`)
     }

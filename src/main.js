@@ -254,7 +254,7 @@ $('reset').addEventListener('click', () => {
 async function connect() {
   try {
     const status = await (await fetch('/api/status')).json()
-    if (!status.hasKey) $('alert').textContent = '環境変数 OPENROUTER_API_KEY が未設定です'
+    if (!status.hasKey) $('alert').textContent = '環境変数 TYPESAFE_API_KEY が未設定です'
     renderStt(status.stt)
   } catch {
     $('alert').textContent = 'node server.js で起動してください'

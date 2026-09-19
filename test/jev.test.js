@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { askJev } from '../src/jev.js'
+import { DECISIONS_URL, PRICE_PER_MTOK, askJev, isBusy } from '../src/jev.js'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const ok = (cost) => ({ ok: true, status: 200, json: async () => ({ answers: { q: { noul: 0.5 } }, usage: { cost } }) })
@@ -78,4 +78,39 @@ test('中継を使うとき（キーなし）は Authorization を付けず、�
   await ask(s.fetchImpl, { apiKey: '', url: '/api/decisions' })
   assert.strictEqual(s.seen[0].url, '/api/decisions')
   assert.ok(!('Authorization' in s.seen[0].init.headers))
+})
+
+test('応答に金額が無ければ、入力トークン数から費用を計算する。出力は無料', async () => {
+  const reply = { ok: true, status: 200, json: async () => ({ model: 'jev-1.13.0', answers: { q: { noul: 0.5 } }, usage: { input_tokens: 2000, output_tokens: 300 } }) }
+  const res = await ask(scripted([[5, reply]]).fetchImpl)
+  assert.strictEqual(res.usage.input_tokens, 2000)
+  assert.ok(Math.abs(res.usage.cost - (2000 * PRICE_PER_MTOK) / 1e6) < 1e-12)
+  assert.ok(Math.abs(res.usage.cost - 0.000084) < 1e-9, '2000 トークンで $0.000084')
+  assert.strictEqual(res.model, 'jev-1.13.0')
+})
+
+test('既定の宛先は TypeSafe の API で、版は固定。OpenRouter 用のヘッダは付けない', async () => {
+  const s = scripted([[5, ok(1)]])
+  await askJev({ apiKey: 'k', state: {}, questions: {}, fetchImpl: s.fetchImpl })
+  assert.strictEqual(s.seen[0].url, DECISIONS_URL)
+  assert.strictEqual(DECISIONS_URL, 'https://api.typesafe.ai/v1/systemone')
+  assert.strictEqual(JSON.parse(s.seen[0].init.body).model, 'jev-1.13.0')
+  assert.deepStrictEqual(Object.keys(s.seen[0].init.headers).sort(), ['Authorization', 'Content-Type'])
+})
+
+test('過負荷（529）では 2 本目を投げない。送った内容の誤り（422）は、直すまで呼んでも無駄なものとして扱う', async () => {
+  const busy = scripted([[5, fail(529)], [0, ok(2)]])
+  await assert.rejects(ask(busy.fetchImpl), (err) => err.status === 529 && !err.fatal)
+  await sleep(60)
+  assert.strictEqual(busy.calls(), 1)
+  assert.strictEqual(isBusy(529) && isBusy(429) && !isBusy(500), true)
+
+  const invalid = scripted([[5, { ok: false, status: 422, json: async () => ({ detail: [{ loc: ['body', 'questions'], msg: 'Field required' }] }) }], [0, ok(2)]])
+  await assert.rejects(ask(invalid.fetchImpl), (err) => err.status === 422 && err.fatal && err.message === 'Jev rejected the request as invalid. (questions: Field required)')
+  assert.strictEqual(invalid.calls(), 1)
+})
+
+test('キーが違うときは、API が返した説明をそのまま添える', async () => {
+  const denied = { ok: false, status: 401, json: async () => ({ detail: { error_type: 'authentication_error', message: 'Cannot authenticate with the server.' } }) }
+  await assert.rejects(ask(scripted([[5, denied]]).fetchImpl), (err) => err.fatal && err.message === 'The API key did not work. (Cannot authenticate with the server.)')
 })
