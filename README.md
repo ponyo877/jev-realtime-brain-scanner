@@ -1,124 +1,127 @@
-# リアルタイム脳内メーカー
+# Realtime Nounai Maker
 
-マイクに向かって話すと、話の内容に合わせて脳内メーカーの中身がその場で入れ替わる。
-脳内の構成比は [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)（TypeSafe の API）だけで決める。
-音声認識は Mac の中で動く Apple の SpeechAnalyzer、描画は p5.js。
+English | [日本語](README.ja.md)
 
-うそこメーカーの「[脳内メーカー](https://maker.usoko.net/nounai/)」に着想を得た非公式のもので、本家とは関係ない。
-横顔の輪郭は引き直したもので、本家の画像素材は使っていない。
+Talk into the microphone, and the contents of a "Nounai Maker" (brain maker) diagram change on the spot to match what you are saying.
+The diagram is a head in profile, filled with kanji that each stand for one thought, feeling or desire.
+The mix of kanji is decided only by [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) (the TypeSafe API).
+Speech recognition is Apple's SpeechAnalyzer running on the Mac, and drawing is p5.js.
 
-## 動かす
+This is an unofficial project inspired by Usoko Maker's "[Nounai Maker](https://maker.usoko.net/nounai/)", and has no connection to the original.
+The head outline was redrawn from scratch. No image assets from the original are used.
 
-macOS 26 以降、Xcode 26、Node.js 20 以降、[TypeSafe](https://console.typesafe.ai/) の API キーが要る。
-npm の依存パッケージは無い。
+## Run
+
+You need macOS 26 or later, Xcode 26, Node.js 20 or later, and a [TypeSafe](https://console.typesafe.ai/) API key.
+There are no npm dependencies.
 
 ```sh
-npm run build:stt                # 音声認識の Swift CLI をビルド（初回だけ）
+npm run build:stt                # build the speech recognition CLI (first time only)
 TYPESAFE_API_KEY=... npm start   # http://localhost:8053
 ```
 
-- 初回はマイクの許可ダイアログが出る。許可する相手は起動元のターミナル
-- キーはサーバーが環境変数から読み、ブラウザには渡さない
-- マイクなしで試すなら `node server.js --no-stt`。画面の入力欄に打った文字を字幕として扱う
-- ポートを変えるなら `node server.js 9000`
+- The first run shows the microphone permission dialog. Permission goes to the terminal you launched from
+- The server reads the key from the environment and never passes it to the browser
+- To try it without a microphone, run `node server.js --no-stt`. Text typed into the input box is treated as a caption
+- To change the port, run `node server.js 9000`
 
-## しくみ
+## How it works
 
-1. `stt/` の Swift CLI がマイクの音声を日本語の字幕にして、認識途中（interim）と確定（final）を 1 行 1 JSON で出す
-2. `server.js` が字幕を SSE でブラウザへ流し、Jev への呼び出しを中継する
-3. ブラウザは直近 30 秒かつ 120 文字までの字幕を Jev に渡す。確定が届いたらすぐ、認識途中は 1.2 秒に 1 回まで聞く
-4. 返ってきた 53 字の構成比を前回と指数移動平均でならし、75 個のセルに割り当てる。同じ字は塊になる
-5. 字幕のうち、いまの脳内のもとになった範囲に下線を付ける。Jev に送った `state` と、返ってきた生の値も画面に出す
+1. The Swift CLI in `stt/` turns microphone audio into Japanese captions and prints them as one JSON per line, separating partial results (interim) from confirmed ones (final)
+2. `server.js` streams the captions to the browser over SSE and relays calls to Jev
+3. The browser passes Jev the captions from the last 30 seconds, up to 120 characters. It asks as soon as a final arrives, and at most once per 1.2 seconds for interim results
+4. The returned mix of 53 kanji is smoothed against the previous one with an exponential moving average, then assigned to 75 cells. The same kanji cluster together
+5. The part of the captions that the current brain is based on is underlined. The `state` sent to Jev and the raw values it returned are also shown on screen
 
-### Jev への聞き方
+### How Jev is asked
 
-エンドポイントは `POST https://api.typesafe.ai/v1/systemone`、モデルは `jev-1.13.0`（[API リファレンス](https://docs.typesafe.ai/api)、[モデル](https://docs.typesafe.ai/models)）。
-Jev は文章を生成せず、`state` と型つきの質問を受け取って、確率つきの判断を返す。
+The endpoint is `POST https://api.typesafe.ai/v1/systemone` and the model is `jev-1.13.0` ([API reference](https://docs.typesafe.ai/api), [models](https://docs.typesafe.ai/models)).
+Jev does not generate text. It takes a `state` and typed questions, and returns judgments with probabilities.
 
-`state` には英語の説明文と、日本語のままの字幕を入れる。
-字幕は「認識途中」「直前に確定した 1 行」「それより前」の 3 つに分け、新しいものを重く見るよう指示する。
+`state` holds an English task description and the captions, left in Japanese.
+The captions are split into three parts, "still being spoken", "the line just confirmed" and "everything before that", and Jev is told to weigh the newest speech most heavily.
 
-質問は 1 リクエストに 55 問。
-全問が並列に評価されるので、問いを増やしても応答時間はほとんど変わらない。
+One request carries 55 questions.
+All questions are evaluated in parallel, so adding questions barely changes the response time.
 
-| 質問 | 型 | 内容 |
+| Question | Type | Content |
 |---|---|---|
-| `brain` | `choice`（53 択） | いま頭をいちばん占めている考えはどれか |
-| 字ごとに 53 問 | `noul` | この字は、いま話し手の頭にあるか |
-| `too_thin` | `noul` | 字幕が短すぎて判断できないか |
+| `brain` | `choice` (53 options) | Which single thought occupies the speaker's mind the most right now? |
+| 53 questions, one per kanji | `noul` | Is this kanji on the speaker's mind right now? |
+| `too_thin` | `noul` | Is the transcript too short to judge? |
 
-構成比は `0.5 × choice の分布 + 0.5 × 正規化(noul⁴)`。
+The mix is `0.5 × choice distribution + 0.5 × normalize(noul⁴)`.
 
-- `choice` だけだと 1 字に寄りすぎる（0.6〜0.98）。眠い話で「休」「癒」が 0 になる
-- `noul` だけだと平たすぎる。無関係な字にも 0.03〜0.3 が返り、最多の字でも 10% 前後にしかならない
-- `noul` を 4 乗して差を広げ、`choice` と半々で混ぜると、主役が 5〜7 割を占めて脇役が散る
-- `too_thin` が高いほど新しい答えの重みを下げる。相づちだけでは脳内が入れ替わらない
+- `choice` alone leans too hard on one kanji (0.6 to 0.98). Talk about being sleepy, and 休 (rest) and 癒 (comfort) drop to 0
+- `noul` alone is too flat. Unrelated kanji still get 0.03 to 0.3, so even the top kanji ends up around 10%
+- Raising `noul` to the 4th power widens the gaps. Mixed half and half with `choice`, the lead kanji takes 50 to 70% and the supporting ones scatter around it
+- The higher `too_thin` is, the less weight the new answer gets. Filler words alone do not replace the brain
 
-この混ぜ方は 1.13 で測って決めたので、モデルは別名の `jev-latest` ではなく版で固定している。
-前回の構成比は Jev に送らない。送ると自分の答えに引きずられるので、ならしはコード側だけで行う。
+This mixing was tuned on 1.13, so the model is pinned to a version instead of the `jev-latest` alias.
+The previous mix is never sent to Jev. Sending it would pull Jev toward its own earlier answer, so smoothing happens only in code.
 
-### 字と色
+### Kanji and colors
 
-53 字は、本家で出る字の報告のうち、複数の出典で一致するもの。
+The 53 kanji are the ones reported to appear in the original, where multiple sources agree.
 
-- 1〜40: 愛 欲 悪 遊 Ｈ 秘 食 友 悩 休 嘘 家 妄 想 気 無 恐 敬 好 逃 怒 抱 寂 楽 嫌 苦 虜 疑 告 疲 忘 敵 餌 学 泣 羨 癒 幸 妬 変
-  （[知恵袋 1](https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1412303824)、[知恵袋 2](https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1231217632)、[作者インタビュー](https://www.j-cast.com/2007/08/07010083.html?p=all)の「40 種類」）
-- 41〜53: 犬 猫 私 国 酒 謎 淫 負 金 眠 迷 善 芸（知恵袋 2）
+- 1 to 40: 愛 欲 悪 遊 Ｈ 秘 食 友 悩 休 嘘 家 妄 想 気 無 恐 敬 好 逃 怒 抱 寂 楽 嫌 苦 虜 疑 告 疲 忘 敵 餌 学 泣 羨 癒 幸 妬 変
+  ([Chiebukuro 1](https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1412303824), [Chiebukuro 2](https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1231217632), and the "40 kinds" in the [author interview](https://www.j-cast.com/2007/08/07010083.html?p=all))
+- 41 to 53: 犬 猫 私 国 酒 謎 淫 負 金 眠 迷 善 芸 (Chiebukuro 2)
 
-色は本家と同じく 1 字 1 色で固定。
-金、嘘、Ｈ、欲、愛、酒、食、休、家、悪の 10 字は本家の生成画像から測った色で、残りは推定（`src/kanji.js` の `measured`）。
-画像の寸法、横顔の向き、肌と枠の色も、本家の生成画像を測った値に合わせた。
-脳の背景だけは本家より薄くし、明るい色の字には細い縁取りを付けている。字を読みやすくするためで、字の色は変えていない。
+As in the original, each kanji has one fixed color.
+The colors of 金, 嘘, Ｈ, 欲, 愛, 酒, 食, 休, 家 and 悪 were measured from images generated by the original. The rest are estimates (see `measured` in `src/kanji.js`).
+The image size, the direction of the profile, and the skin and frame colors also follow values measured from the original's images.
+Only the brain background is lighter than the original, and bright kanji get a thin outline. This is for legibility, and the kanji colors themselves are unchanged.
 
-### 音声認識
+### Speech recognition
 
-Apple の `SpeechAnalyzer`（`ja_JP`）を使う。無料で、音声は Mac の外へ出ない。
+Apple's `SpeechAnalyzer` (`ja_JP`) is used. It is free, and audio never leaves the Mac.
 
-Whisper 系は、無音のあいだに「ご視聴ありがとうございました」のような文を作り出すことがある。
-ここでは字幕がそのまま Jev の入力になり、黙っているだけで脳内が汚れるので採らなかった。
+Whisper-based recognizers sometimes invent sentences during silence, such as 「ご視聴ありがとうございました」 ("Thank you for watching").
+Here the captions go straight into Jev, so staying silent would pollute the brain. That is why they were not chosen.
 
-認識エンジンを替えるなら、同じ形の JSONL を stdout に出すコマンドを `STT_CMD` に指定する。
-
-```sh
-STT_CMD="node sim/fake-stt.js" npm start   # 台本を流す偽の認識器。マイクなしで画面を確かめられる
-```
-
-## 検証
+To swap the recognizer, set `STT_CMD` to a command that prints JSONL of the same shape to stdout.
 
 ```sh
-npm test        # node:test。29 件
-npm run probe   # 実 API。期待の字が上位 3 字に入るかを見る
-npm run sim     # 実 API。台本の会話を画面と同じ手順で流す
-stt/.build/release/stt --file a.aiff   # 音声ファイルで認識だけを確かめる
+STT_CMD="node sim/fake-stt.js" npm start   # a fake recognizer that plays a script, for checking the screen without a microphone
 ```
 
-実測（2026-09-19、`jev-1.13.0`、Apple M5）:
+## Verification
 
-| 項目 | 結果 |
+```sh
+npm test        # node:test, 29 tests
+npm run probe   # real API: checks that the expected kanji land in the top 3
+npm run sim     # real API: plays a scripted conversation through the same steps as the screen
+stt/.build/release/stt --file a.aiff   # checks recognition alone against an audio file
+```
+
+Measured on 2026-09-19 with `jev-1.13.0` on an Apple M5:
+
+| Item | Result |
 |---|---|
-| 単発の 7 文 | 期待の字が上位 3 字に 7/7 |
-| 会話の通し（6 発話） | 直後に最多の字が期待どおり 5/6。外れた 1 回は「金欠だからお弁当で我慢」で、食 34、金 24 |
-| Jev の応答時間 | 中央値 275ms、最大 552ms（55 問） |
-| 費用 | 1 回あたり約 $0.00017（入力 約 4,000 トークン、出力は無料）。1 秒おきに聞き続けて 1 時間で $0.6 前後 |
-| 音声認識 | 合成音声の 3 文で誤りは 1 か所。無音の 6 秒間は何も出さなかった |
+| 7 single sentences | The expected kanji was in the top 3 for 7/7 |
+| Scripted conversation (6 utterances) | The top kanji right after each utterance was as expected for 5/6. The miss was "I'm broke, so I'll settle for a packed lunch", which gave 食 34 and 金 24 |
+| Jev response time | Median 275 ms, max 552 ms (55 questions) |
+| Cost | About $0.00017 per call (about 4,000 input tokens; output is free). Roughly $0.6 per hour when asking once per second |
+| Speech recognition | 1 error in 3 sentences of synthesized speech. Nothing was output during 6 seconds of silence |
 
-話し声での認識精度と、発話から字幕までの遅延は、まだ測っていない。
+Recognition accuracy on real speech, and the delay from speech to caption, have not been measured yet.
 
-## ファイル
+## Files
 
 ```
-server.js            静的配信、Jev の中継、字幕の SSE、音声認識プロセスの管理
-stt/                 音声認識の Swift CLI
-src/kanji.js         53 字と色と、Jev に渡す説明文
-src/jev.js           Jev の呼び出し。1.2 秒返らなければ同じ要求をもう 1 本投げ、先に届いたほうを採る
-src/ask.js           state と質問の組み立て、答えから構成比へ
-src/transcript.js    字幕の置き場と、Jev に渡す範囲
-src/composition.js   ならし、個数化、セルへの割り当て
-src/brain.js         横顔と脳の輪郭、セルの座標
-src/sketch.js        p5 の描画
-src/main.js          字幕の受信、聞くタイミング、字幕と内訳の表示
-sim/                 実 API での検証と、偽の認識器
+server.js            static files, the Jev relay, caption SSE, managing the speech recognition process
+stt/                 the speech recognition Swift CLI
+src/kanji.js         the 53 kanji, their colors, and the descriptions given to Jev
+src/jev.js           calls Jev. If no reply comes within 1.2 s, sends the same request again and takes whichever arrives first
+src/ask.js           builds the state and questions, turns answers into the mix
+src/transcript.js    holds the captions and picks the range given to Jev
+src/composition.js   smoothing, converting to counts, assigning to cells
+src/brain.js         outlines of the profile and the brain, cell coordinates
+src/sketch.js        p5 drawing
+src/main.js          receives captions, decides when to ask, shows captions and the breakdown
+sim/                 verification against the real API, and the fake recognizer
 test/                node:test
 ```
 
-`src/` のうち `sketch.js` と `main.js` 以外は DOM に依存せず、Node からそのまま使える。
+Everything in `src/` except `sketch.js` and `main.js` is independent of the DOM and runs in Node as is.
